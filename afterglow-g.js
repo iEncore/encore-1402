@@ -1738,8 +1738,8 @@ async function attempt(ctx, opts) {
   /* ---- STEP P: Load payload ---- */
   say("[p] ---- PAYLOAD LOADING ----");
   say("[p] patchset: patchset-1402.bin (641 bytes, 14.02 corrected)");
-  say("[p] primary:  goldhen-1402.bin (GoldHEN v2.4b18.13, official 14.00)");
-  say("[p] fallback: hen-1402-core.bin (ps4-hen, binary-patched 14.02)");
+  say("[p] primary:  hen-1402-core.bin (ps4-hen, binary-patched 14.02)");
+  say("[p] fallback: goldhen-1402.bin (GoldHEN v2.4b18.13, official 14.00)");
 
   /* First load patchset */
   say("[p] loading patchset-1402.bin...");
@@ -1762,7 +1762,7 @@ async function attempt(ctx, opts) {
 
   /* Then load main payload */
   let payloadLoaded = false;
-  const payloads = ["goldhen-1402.bin", "hen-1402-core.bin"];
+  const payloads = ["hen-1402-core.bin", "goldhen-1402.bin"];
   for (let pi = 0; pi < payloads.length && !payloadLoaded; pi++) {
     say("[p] ---- trying " + payloads[pi] + " ----");
     try {
