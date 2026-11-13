@@ -57,7 +57,7 @@ var payloadsList = [
   {
     id: "DetectSouthbridge",
     name: "Detect Southbridge",
-    author: "ArabPixel",
+    author: "EncoreCFW",
     description: "Detects your PS4's Southbridge. Useful for setting up PS4 Linux.",
     specificFW: "4.73 - latest",
     category: "tools",
@@ -84,7 +84,7 @@ var payloadsList = [
   {
     id: "WebSrv",
     name: "PS4 Websrv",
-    author: "ArabPixel",
+    author: "EncoreCFW",
     description: "Launches a web server on port 80 on the PS4 to load payloads using external devices on the fly.",
     specificFW: "4.73 - latest",
     category: "tools",
@@ -158,7 +158,7 @@ var payloadsList = [
   {
     id: "Linux1024mb",
     name: "Linux Loader 1GB",
-    author: "ps4boot<br>ArabPixel, rmux",
+    author: "ps4boot<br>EncoreCFW, rmux",
     description: "Linux Loader for all consoles. 1GB VRAM. Select for first install",
     specificFW: "5.05, 6.72 - latest",
     category: "linux",
@@ -168,7 +168,7 @@ var payloadsList = [
   {
     id: "Linux2048mb",
     name: "Linux Loader 2GB",
-    author: "ps4boot<br>ArabPixel, rmux",
+    author: "ps4boot<br>EncoreCFW, rmux",
     description: "Linux Loader for all consoles. 2GB VRAM.",
     specificFW: "5.05, 6.72 - latest",
     category: "linux",
@@ -178,7 +178,7 @@ var payloadsList = [
   {
     id: "Linux3072mb",
     name: "Linux Loader 3GB",
-    author: "ps4boot<br>ArabPixel, rmux",
+    author: "ps4boot<br>EncoreCFW, rmux",
     description: "Linux Loader for all consoles. 3GB VRAM.",
     specificFW: "5.05, 6.72 - latest",
     category: "linux",
@@ -188,7 +188,7 @@ var payloadsList = [
   {
     id: "Linux4096mb",
     name: "Linux Loader 4GB",
-    author: "ps4boot<br>ArabPixel, rmux",
+    author: "ps4boot<br>EncoreCFW, rmux",
     description: "Linux Loader for all consoles. 4GB VRAM.",
     specificFW: "5.05, 6.72 - latest",
     category: "linux",
@@ -198,7 +198,7 @@ var payloadsList = [
   {
     id: "Linux128mb",
     name: "Linux Loader 128MB",
-    author: "ps4boot<br>ArabPixel, rmux",
+    author: "ps4boot<br>EncoreCFW, rmux",
     description: "Linux Loader for all consoles. 128MB VRAM.",
     specificFW: "5.05, 6.72 - latest",
     category: "linux",
@@ -208,7 +208,7 @@ var payloadsList = [
   {
     id: "Linux256mb",
     name: "Linux Loader 256MB",
-    author: "ps4boot<br>ArabPixel, rmux",
+    author: "ps4boot<br>EncoreCFW, rmux",
     description: "Linux Loader for all consoles. 256MB VRAM.",
     specificFW: "5.05, 6.72 - latest",
     category: "linux",
@@ -218,7 +218,7 @@ var payloadsList = [
   {
     id: "Linux512mb",
     name: "Linux Loader 512MB",
-    author: "ps4boot<br>ArabPixel, rmux",
+    author: "ps4boot<br>EncoreCFW, rmux",
     description: "Linux Loader for all consoles. 512MB VRAM.",
     specificFW: "5.05, 6.72 - latest",
     category: "linux",

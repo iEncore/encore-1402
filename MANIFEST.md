@@ -1,4 +1,4 @@
-# WebKitty mirror — https://webkitty.arabpixel.net/
+# EncoreCFW — https://iencore.github.io/encore-1402/
 
      3249  17c9dd773b4ee9acd13a7a2a9c717da9  cache.html
      5668  f0160e38de1ec83b768df7daf6090d57  exploit.html
@@ -7,7 +7,7 @@
       279  9308cdabf39bbc7b40449157e024bfc8  includes/assets/icons/cat-paw.svg
     15406  c5762ca99989fd593a180cd2e832ab58  includes/assets/icons/favicon.ico
       476  a14d08ba52c47fee23f9136925e205fe  includes/assets/icons/peeking-cat.svg
-    17821  68a9d9d9494bc86cabbbad0ef07ffd21  includes/assets/icons/webkitty.svg
+    17821  68a9d9d9494bc86cabbbad0ef07ffd21  includes/assets/icons/encorecfw.svg
       165  b9d15cd27d6951bde8c24f7eae816ebc  includes/caches/cache10xx.html
       165  91a4b485e97d25a87402529e170d5935  includes/caches/cache11xx.html
       165  ee90a3ed1b39ea71c6f32e423c093f44  includes/caches/cache12xx.html

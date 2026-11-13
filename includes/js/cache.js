@@ -19,7 +19,7 @@ function terminateCache() {
         if (window.applicationCache.status === 3 || window.applicationCache.status === 1) {
             console.log("Terminating cache process to save memory...");
             window.applicationCache.abort();
-            var appTitle = (typeof projectName !== 'undefined') ? projectName : "WebKitty";
+            var appTitle = (typeof projectName !== 'undefined') ? projectName : "EncoreCFW";
             document.title = appTitle;
             window.applicationCache.removeEventListener("progress", null);
             window.applicationCache.oncached = null;
