@@ -936,7 +936,7 @@ async function attempt(ctx, opts) {
     say("[preflight] Unsupported user agent; refusing to run exploit");
     return false;
   }
-  const preflightHen = await fetchBytes("hen-1402-source.bin", "preflight");
+  const preflightHen = await fetchBytes("hen1402_184.bin", "preflight");
   if (!preflightHen || preflightHen.length !== 501152 || preflightHen[0] !== 0xE9) {
     say("[preflight] Official HEN184 file missing, corrupted, or unexpected format; no kernel operations performed");
     return false;
@@ -1422,7 +1422,7 @@ async function attempt(ctx, opts) {
      Remaining kernel patches are still UNVERIFIED for 14.02. */
   say("[p] Attempting Scene-Collective ps4-hen pre-release-main-184 for 14.02");
   try {
-    iface.payload = await loadPayload("hen-1402-source.bin");
+    iface.payload = await loadPayload("hen1402_184.bin");
   } catch (e) {
     say("[p] Error starting HEN-184 thread: " + (e && e.message));
     iface.payload = false;
@@ -1459,7 +1459,7 @@ async function loadPayload(url, vorab) {
   }
 
   if (!blob.length) { say("[p] " + url + " is empty"); return false; }
-  if (url === "hen-1402-source.bin" && blob.length !== 501152) {
+  if (url === "hen1402_184.bin" && blob.length !== 501152) {
     say("[p] HEN184 wrong length " + blob.length + " (expected 501152), stopping");
     return false;
   }
