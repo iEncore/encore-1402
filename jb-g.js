@@ -34,7 +34,7 @@ function showRetry() {
   showNotice("exploit failed - please retry (reopen browser)");
 }
 
-const WATCHDOG_MS = 45000;
+const WATCHDOG_MS = 120000;
 const watchdog = setInterval(function () {
   if (Date.now() - lastMark > WATCHDOG_MS) {
     try { clearInterval(watchdog); } catch (e) {}

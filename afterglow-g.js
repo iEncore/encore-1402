@@ -1904,14 +1904,14 @@ async function loadPayload(url, vorab) {
 
 /* End of file */
 export async function runAfterglow(ctx, opts) {
-  const max = (opts && opts.tries) || 4;
+  const max = (opts && opts.tries) || 8;
   for (let n = 1; n <= max; n++) {
     const r = await attempt(ctx, opts);
     if (r) return r;
     if (!STATE.retry) return false;
     if (n === max) { say("gave up after " + n + " attempts"); return false; }
-    say("attempt " + n + " fell short -- going again");
-    await new Promise(function (ok) { setTimeout(ok, 400); });
+    say("attempt " + n + " of " + max + " fell short -- going again in 800ms");
+    await new Promise(function (ok) { setTimeout(ok, 800); });
   }
   return false;
 }
