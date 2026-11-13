@@ -1750,8 +1750,8 @@ async function attempt(ctx, opts) {
   /* ---- STEP P: Load payload ---- */
   say("[p] ---- PAYLOAD LOADING ----");
   say("[p] patchset: patchset-1402.bin (641 bytes, 14.02 corrected)");
-  say("[p] primary:  hen-1402-core.bin (ps4-hen, binary-patched 14.02)");
-  say("[p] fallback: goldhen-1402.bin (GoldHEN v2.4b18.13, official 14.00)");
+  say("[p] primary:  hen-1402-source.bin (Scene-Collective ps4-hen, source-compiled 14.02)");
+  say("[p] fallback: goldhen-1402.bin (OpenGoldHEN, source-ported 14.02)");
 
   /* First load patchset */
   say("[p] loading patchset-1402.bin...");
@@ -1774,7 +1774,7 @@ async function attempt(ctx, opts) {
 
   /* Then load main payload */
   let payloadLoaded = false;
-  const payloads = ["hen-1402-core.bin", "goldhen-1402.bin"];
+  const payloads = ["hen-1402-source.bin", "goldhen-1402.bin"];
   for (let pi = 0; pi < payloads.length && !payloadLoaded; pi++) {
     say("[p] ---- trying " + payloads[pi] + " ----");
     try {
@@ -1878,13 +1878,16 @@ async function loadPayload(url, vorab) {
     }
   }
   
-  for (let o = 0; o < 10; o++) wr1(plus(entry, 0x1068 + o), 0x90);
-  wr1(plus(entry, 0x3490), 0x00); wr1(plus(entry, 0x3491), 0x0d);
-  wr1(plus(entry, 0x3492), 0x52); wr1(plus(entry, 0x3493), 0x01);
-  say("[p] console-output write NOP'd (0x1068), M_TEMP -> 0x1520d00 (0x3490)");
-  
-  for (let o = 0; o < 4; o++) wr1(plus(entry, 0x1136 + o), 0x90);
-  say("[p] kpayload entry call NOP'd (0x1136) -- loader-only run");
+  if (blob.length > 100000) {
+    /* Legacy patches for old binary-patched hen-1402-core.bin (500KB) */
+    for (let o = 0; o < 10; o++) wr1(plus(entry, 0x1068 + o), 0x90);
+    wr1(plus(entry, 0x3490), 0x00); wr1(plus(entry, 0x3491), 0x0d);
+    wr1(plus(entry, 0x3492), 0x52); wr1(plus(entry, 0x3493), 0x01);
+    for (let o = 0; o < 4; o++) wr1(plus(entry, 0x1136 + o), 0x90);
+    say("[p] legacy HEN patches applied (0x1068, 0x3490, 0x1136)");
+  } else {
+    say("[p] source-ported HEN (" + blob.length + " bytes) — no legacy patches needed");
+  }
   say("[p] payload copied and verified, starting thread");
 
   const SLOT_1352 = 0x3cb9c00;
