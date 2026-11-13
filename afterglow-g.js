@@ -1754,7 +1754,7 @@ async function attempt(ctx, opts) {
   /* ---- STEP P: Load payload ---- */
   say("[p] ---- PAYLOAD LOADING ----");
   say("[p] patchset: patchset-1402.bin (641 bytes, 14.02 corrected)");
-  say("[p] primary:  encorehen-1402.bin (EncoreHEN 1.0.0, source-compiled 14.02)");
+  say("[p] primary:  encorehen-1402.bin (EncoreHEN 2.0.0, patched Build 184)");
   say("[p] fallback: hen-1402-source.bin (Scene-Collective ps4-hen build 184)");
 
   /* First load patchset */
@@ -1778,7 +1778,7 @@ async function attempt(ctx, opts) {
 
   /* Then load main payload */
   let payloadLoaded = false;
-  const payloads = ["encorehen-1402.bin", "hen-1402-source.bin"];
+  const payloads = ["hen-1402-source.bin", "encorehen-1402.bin"];
   for (let pi = 0; pi < payloads.length && !payloadLoaded; pi++) {
     say("[p] ---- trying " + payloads[pi] + " ----");
     try {
