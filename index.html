@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Encore 14.02</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="main">
+  <h1>Encore 14.02</h1>
+  <p>PS4 Firmware 14.02 — WebKit Jailbreak</p>
+  <p id="status">Initializing...</p>
+  <div id="countdown"></div>
+  <p><a id="launch-link" href="launch.html?v=enc1402v3&afterglow=run&mode=payload&payload=goldhen-1402.bin">Launch Jailbreak</a></p>
+  <p style="font-size:0.8em;color:#888;">
+    Kernel exploit: afterglow (APM UAF) by well0nez<br>
+    WebKit primitive: slopkit by jordyidk<br>
+    GoldHEN by SiSTRo<br>
+    14.02 offsets: verified against kernel_1402.bin + KTM preflight
+  </p>
+</div>
+<script>
+(function() {
+  var count = 5;
+  var el = document.getElementById('countdown');
+  var link = document.getElementById('launch-link');
+  var stat = document.getElementById('status');
+  stat.textContent = 'Ready. Click Launch or wait ' + count + 's...';
+  var iv = setInterval(function() {
+    count--;
+    if (count <= 0) {
+      clearInterval(iv);
+      stat.textContent = 'Redirecting...';
+      window.location.href = link.href;
+    } else {
+      stat.textContent = 'Launching in ' + count + 's...';
+    }
+  }, 1000);
+})();
+</script>
+</body>
+</html>

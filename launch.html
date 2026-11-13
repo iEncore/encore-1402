@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Encore 14.02 — Running</title>
+<style>
+body { background: #0a0a12; color: #c0c0c0; font-family: monospace; margin: 0; padding: 8px; }
+h1 { color: #00ccff; font-size: 18px; margin: 4px 0; }
+#status-bar { background: #111; padding: 6px 10px; border-radius: 4px; margin-bottom: 8px; font-size: 12px; }
+#status-bar .ok { color: #0f0; }
+#status-bar .fail { color: #f44; }
+#status-bar .wait { color: #ff0; }
+#log {
+  font-size: 11px; line-height: 1.3; max-height: 78vh; overflow-y: auto;
+  text-align: left; white-space: pre-wrap; background: #0d0d18;
+  padding: 8px; border: 1px solid #222; border-radius: 4px;
+}
+.log-err { color: #ff4444; font-weight: bold; }
+.log-ok { color: #44ff44; }
+.log-warn { color: #ffaa00; }
+.log-info { color: #aaaacc; }
+.log-step { color: #00ccff; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Encore 14.02</h1>
+<div id="status-bar">
+  <span>WebKit: </span><span id="st-wk" class="wait">...</span>
+  <span> | Kernel: </span><span id="st-kern" class="wait">...</span>
+  <span> | Patches: </span><span id="st-patch" class="wait">...</span>
+  <span> | Root: </span><span id="st-root" class="wait">...</span>
+  <span> | Payload: </span><span id="st-pay" class="wait">...</span>
+</div>
+<div id="log"></div>
+
+<script type="module">
+import { establishPrimitive, releasePrimitiveState } from "./core.js?v=enc1402v3";
+import { installWindowP, pairStatus, releaseWindowP } from "./mem.js?v=enc1402v3";
+import { int64 } from "./int64.js?v=enc1402v3";
+import { offsetsFor, PS4 } from "./ps4_offsets.js?v=enc1402v3";
+
+const logEl = document.getElementById("log");
+const stWk = document.getElementById("st-wk");
+const stKern = document.getElementById("st-kern");
+const stPatch = document.getElementById("st-patch");
+const stRoot = document.getElementById("st-root");
+const stPay = document.getElementById("st-pay");
+let logCount = 0;
+
+function classify(msg) {
+  if (/ABORT|FAIL|ERROR|EXCEPTION|✗|BLOCKED|UNRESOLVED|MISMATCH|crash/i.test(msg)) return "log-err";
+  if (/✓|COMPLETE|OK|STOCK|FINAL|loaded|defused|jailbroken/i.test(msg)) return "log-ok";
+  if (/⚠|WARNING|WARN|shifted|ADJUSTED|skip/i.test(msg)) return "log-warn";
+  if (/^---|\[DIAG|\[5\]|\[7\]|\[8\]|\[9\]|\[10\]|\[p\]/.test(msg)) return "log-step";
+  return "log-info";
+}
+
+function log(tag, msg) {
+  logCount++;
+  var cls = classify(msg);
+  var span = document.createElement("span");
+  span.className = cls;
+  span.textContent = "[" + String(logCount).padStart(3, "0") + "][" + tag + "] " + msg + "\n";
+  logEl.appendChild(span);
+  logEl.scrollTop = logEl.scrollHeight;
+
+  /* Update status bar based on keywords */
+  if (/primitive established/i.test(msg)) { stWk.textContent = "OK"; stWk.className = "ok"; }
+  if (/kernel base|base.*0xffff/i.test(msg) && /✓/.test(msg)) { stKern.textContent = "OK"; stKern.className = "ok"; }
+  if (/kernel patches verified.*ALL OK/i.test(msg)) { stPatch.textContent = "OK"; stPatch.className = "ok"; }
+  if (/jailbroken.*uid 0|JAILBROKEN/i.test(msg)) { stRoot.textContent = "ROOT"; stRoot.className = "ok"; }
+  if (/payload.*loaded.*✓/i.test(msg)) { stPay.textContent = "OK"; stPay.className = "ok"; }
+  if (/ABORT|FAIL|crash|not root/i.test(msg)) {
+    if (/webkit|primitive/i.test(msg)) { stWk.textContent = "FAIL"; stWk.className = "fail"; }
+    else if (/patch/i.test(msg)) { stPatch.textContent = "FAIL"; stPatch.className = "fail"; }
+    else if (/kernel|swap|base/i.test(msg)) { stKern.textContent = "FAIL"; stKern.className = "fail"; }
+    else if (/payload/i.test(msg)) { stPay.textContent = "FAIL"; stPay.className = "fail"; }
+  }
+}
+
+(async function() {
+  log("E", "Encore 14.02 — exploit chain starting");
+  log("E", "build: enc1402v3 | direct 14.02 offsets | stock-byte guards | auto-scan fallback");
+  log("E", "timestamp: " + new Date().toISOString());
+
+  var params = new URLSearchParams(window.location.search);
+  var fwKey = "14.02";
+  var fwData = offsetsFor(fwKey);
+  if (!fwData || !fwData.off) {
+    log("E", "no offsets for firmware " + fwKey + " in ps4_offsets.js");
+    return;
+  }
+  log("E", "firmware " + fwKey + " offsets loaded — " + (fwData.off.fw_status || "no status"));
+
+  try {
+    log("WK", "---- WEBKIT PRIMITIVE ----");
+    log("WK", "establishing structured-clone UAF (slopkit core)...");
+    await establishPrimitive(fwData.off, function(tag, msg) { log(tag, msg); });
+    log("WK", "primitive established ✓");
+
+    log("WK", "installing window.p R/W...");
+    installWindowP(fwData.off, function(tag, msg) { log(tag, msg); });
+    var ps = pairStatus();
+    log("WK", "pair status: " + ps);
+
+    if (params.get("afterglow") === "run") {
+      log("AG", "---- AFTERGLOW KERNEL EXPLOIT ----");
+      log("AG", "loading afterglow-g.js module...");
+      var ag = await import("./afterglow-g.js?v=enc1402v3");
+      log("AG", "module loaded, probing...");
+
+      if (ag.probeAfterglow) {
+        var probeResult = ag.probeAfterglow();
+        if (!probeResult) {
+          log("AG", "✗ probe says this process cannot carry the exploit");
+          log("AG", "  (not enough APM units, libc not found, or gadgets missing)");
+          return;
+        }
+        log("AG", "probe passed ✓");
+      }
+
+      log("AG", "running exploit chain...");
+      var result = await ag.runAfterglow(
+        params.get("mode") || "payload",
+        params.get("payload") || "goldhen-1402.bin"
+      );
+
+      if (result) {
+        log("E", "");
+        log("E", "══════════════════════════════════════");
+        log("E", "  ENCORE 14.02 — JAILBREAK COMPLETE   ");
+        log("E", "══════════════════════════════════════");
+      } else {
+        log("E", "");
+        log("E", "exploit chain did not complete — review log above for ✗ entries");
+      }
+    } else {
+      log("E", "afterglow=run not set in URL params — not launching kernel exploit");
+      log("E", "add ?afterglow=run to URL to start the exploit");
+    }
+  } catch (e) {
+    log("E", "");
+    log("E", "══ UNHANDLED EXCEPTION ══");
+    log("E", "message: " + (e && e.message ? e.message : String(e)));
+    log("E", "stack: " + (e && e.stack ? e.stack : "unavailable"));
+    log("E", "This is a CODE BUG, not a kernel issue.");
+  }
+})();
+</script>
+</body>
+</html>
