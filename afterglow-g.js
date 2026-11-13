@@ -931,7 +931,7 @@ async function attempt(ctx, opts) {
   STATE.ctx = ctx;
   opts = opts || {};
   STATE.retry = false;
-  say("Akatsuki KERNEL PORT v3: HEN184 FW 14.02; clean-kernel 15-site byte guard");
+  say("ENCORE 14.02 — EncoreHEN with GoldHEN features");
   if (!/PlayStation\s+4[\/ ]14\.02(?![0-9])/i.test(navigator.userAgent || "")) {
     say("[preflight] Unsupported user agent; refusing to run exploit");
     return false;
