@@ -1878,16 +1878,8 @@ async function loadPayload(url, vorab) {
     }
   }
   
-  if (blob.length > 100000) {
-    /* Legacy patches for old binary-patched hen-1402-core.bin (500KB) */
-    for (let o = 0; o < 10; o++) wr1(plus(entry, 0x1068 + o), 0x90);
-    wr1(plus(entry, 0x3490), 0x00); wr1(plus(entry, 0x3491), 0x0d);
-    wr1(plus(entry, 0x3492), 0x52); wr1(plus(entry, 0x3493), 0x01);
-    for (let o = 0; o < 4; o++) wr1(plus(entry, 0x1136 + o), 0x90);
-    say("[p] legacy HEN patches applied (0x1068, 0x3490, 0x1136)");
-  } else {
-    say("[p] source-ported HEN (" + blob.length + " bytes) — no legacy patches needed");
-  }
+  /* Source-compiled HEN has correct offsets — no runtime patches needed */
+  say("[p] source-compiled HEN (" + blob.length + " bytes) — no runtime patches needed");
   say("[p] payload copied and verified, starting thread");
 
   const SLOT_1352 = 0x3cb9c00;
