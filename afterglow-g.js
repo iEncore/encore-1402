@@ -1259,8 +1259,8 @@ async function attempt(ctx, opts) {
     const below = hostPage.hi < upto.hi || (hostPage.hi === upto.hi && hostPage.low < upto.low);
     if (above && below) { hit = k; break; }
   }
-  if (hit === null) { say("[4] no mapping covers the host page, " + walked + " walked"); return false; }
-  if (hit === 0) { say("[4] the host page is the first mapping -- cannot address it"); return false; }
+  if (hit === null) { say("[4] no mapping covers the host page, " + walked + " walked"); STATE.retry = true; return false; }
+  if (hit === 0) { say("[4] the host page is the first mapping -- cannot address it"); STATE.retry = true; return false; }
 
   const rights = maps.dv.getUint32(hit * TUNE.stride + 0x5c, true);
   const locked = maps.dv.getUint32(hit * TUNE.stride + 0x88, true);
@@ -1271,7 +1271,7 @@ async function attempt(ctx, opts) {
       + " ceiling=0x" + ceiling.toString(16));
   if (locked % 2 === 1 || !inHeap(here) || now === 0 || ceiling === 0
       || Math.floor(now / 4) % 2 !== 1) {
-    say("    not the mapping we want -- nothing written"); return false;
+    say("    not the mapping we want -- nothing written"); STATE.retry = true; return false;
   }
 
   let widened = rights;
