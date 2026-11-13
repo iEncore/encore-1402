@@ -1434,19 +1434,6 @@ async function attempt(ctx, opts) {
   say("[p] HEN-184 thread created; HEN initialization NOT verified");
   say("  Kernel patch readback: " + done + "/" + PATCHES.length + " (not semantic validation)");
 
-  /* ---- EncoreHEN Extensions: GoldHEN syscalls + FTP/klog/payloader ---- */
-  say("[p] ---- Loading EncoreHEN extensions ----");
-  try {
-    const extResult = await loadPayload("encorehen-ext.bin");
-    if (extResult) {
-      say("[p] ✓ EncoreHEN extensions loaded (GoldHEN syscalls + FTP:2121 + klog:3232 + payloader:9090)");
-    } else {
-      say("[p] ✗ EncoreHEN extensions failed — base HEN still active");
-    }
-  } catch (e) {
-    say("[p] ✗ EncoreHEN ext exception: " + (e && e.message) + " — base HEN still active");
-  }
-
   return iface;
 }
 
