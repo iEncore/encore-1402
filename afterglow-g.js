@@ -967,6 +967,10 @@ async function attempt(ctx, opts) {
   STATE.ctx = ctx;
   opts = opts || {};
   STATE.retry = false;
+  STATE.units = {};
+  STATE.clones = 0;
+  STATE.base = null;
+  STATE.batch = undefined;
   say("afterglow -- ps4 kernel exploit, firmware 14.02 only (Encore build, direct offsets)");
 
   const missing = seedStubs();
@@ -1917,8 +1921,8 @@ export async function runAfterglow(ctx, opts) {
     if (r) return r;
     if (!STATE.retry) return false;
     if (n === max) { say("gave up after " + n + " attempts"); return false; }
-    say("attempt " + n + " of " + max + " fell short -- going again in 800ms");
-    await new Promise(function (ok) { setTimeout(ok, 800); });
+    say("attempt " + n + " of " + max + " fell short -- going again in 2000ms");
+    await new Promise(function (ok) { setTimeout(ok, 2000); });
   }
   return false;
 }
