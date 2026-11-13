@@ -34,7 +34,54 @@ h1 { color: #00ccff; font-size: 18px; margin: 4px 0; }
 </div>
 <div id="log"></div>
 
+<!-- PS4 check BEFORE any module imports -->
+<script>
+(function() {
+  var ua = navigator.userAgent || '';
+  var isPS4 = /PlayStation 4/.test(ua);
+  if (!isPS4) {
+    document.getElementById('log').innerHTML =
+      '<span style="color:#ff4444;font-weight:bold">'
+      + '[ERROR] This is NOT a PS4 browser.\n\n'
+      + 'User-Agent: ' + ua + '\n\n'
+      + 'This exploit only works on a PS4 running firmware 14.02.\n'
+      + 'Open this URL in the PS4 browser.\n\n'
+      + 'Go to: https://iencore.github.io/encore-1402/</span>';
+    document.getElementById('st-wk').textContent = 'N/A';
+    document.getElementById('st-wk').className = 'fail';
+    document.getElementById('st-kern').textContent = 'N/A';
+    document.getElementById('st-kern').className = 'fail';
+    document.getElementById('st-patch').textContent = 'N/A';
+    document.getElementById('st-patch').className = 'fail';
+    document.getElementById('st-root').textContent = 'N/A';
+    document.getElementById('st-root').className = 'fail';
+    document.getElementById('st-pay').textContent = 'N/A';
+    document.getElementById('st-pay').className = 'fail';
+    /* Block module loading */
+    window.__ENCORE_BLOCKED = true;
+  }
+})();
+</script>
+
+<!-- Global error handler for uncaught errors -->
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('log');
+  if (el) {
+    var s = document.createElement('span');
+    s.style.color = '#ff4444';
+    s.style.fontWeight = 'bold';
+    s.textContent = '[CRASH] ' + msg + '\n  at ' + src + ':' + line + ':' + col + '\n';
+    if (err && err.stack) s.textContent += '  stack: ' + err.stack.split('\n').slice(0,3).join('\n  ') + '\n';
+    el.appendChild(s);
+    el.scrollTop = el.scrollHeight;
+  }
+};
+</script>
+
 <script type="module">
+if (window.__ENCORE_BLOCKED) { throw new Error('Not a PS4 — exploit blocked'); }
+
 import { establishPrimitive, releasePrimitiveState } from "./core.js?v=enc1402v3";
 import { installWindowP, pairStatus, releaseWindowP } from "./mem.js?v=enc1402v3";
 import { int64 } from "./int64.js?v=enc1402v3";
