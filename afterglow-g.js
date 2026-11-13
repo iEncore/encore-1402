@@ -1434,6 +1434,70 @@ async function attempt(ctx, opts) {
   say("[p] HEN-184 thread created; HEN initialization NOT verified");
   say("  Kernel patch readback: " + done + "/" + PATCHES.length + " (not semantic validation)");
 
+  /* ---- EncoreHEN: GoldHEN syscalls via k.apply (4-byte-safe writes) ----
+   * Previous crash: k.apply .imm() wrote >4 bytes after MOV DWORD opcode,
+   * corrupting the x86 instruction stream. Fixed: all writes ≤4 bytes. */
+  (function () {
+    say("[e] Installing GoldHEN syscalls...");
+    var SE = 0x01102B70;
+    /* Code caves at SYSENT[550-552] */
+    var C0 = SE + 550 * 0x30, C1 = SE + 551 * 0x30, C2 = SE + 552 * 0x30;
+    /* Target entries */
+    var E0 = SE + 200 * 0x30, E1 = SE + 201 * 0x30, E5 = SE + 500 * 0x30;
+
+    /* Compute absolute stub addresses as two 4-byte hex strings */
+    function loHex(rva) {
+      var v = ((kbase.low >>> 0) + rva) >>> 0, s = "";
+      for (var i = 0; i < 4; i++) { s += (v & 0xff).toString(16).padStart(2, "0"); v >>>= 8; }
+      return s;
+    }
+    function hiHex(rva) {
+      var lo = ((kbase.low >>> 0) + rva) >>> 0;
+      var hi = (kbase.hi >>> 0) + ((lo < (kbase.low >>> 0)) ? 1 : 0);
+      var s = "";
+      for (var i = 0; i < 4; i++) { s += (hi & 0xff).toString(16).padStart(2, "0"); hi >>>= 8; }
+      return s;
+    }
+
+    var p = [
+      /* Stub 200: c7 87 98030000 00000402 31c0 c3 (13 bytes, split 4+4+4+1) */
+      [C0 + 0,  "c7879803", "00000000", "s200_0"],
+      [C0 + 4,  "00000000", "00000000", "s200_4"],
+      [C0 + 8,  "040231c0", "00000000", "s200_8"],
+      [C0 + 12, "c3",       "00",       "s200_c"],
+      /* Stub 201: 31 c0 c3 (3 bytes: 2+1) */
+      [C1 + 0,  "31c0",     "0000",     "s201_0"],
+      [C1 + 2,  "c3",       "00",       "s201_2"],
+      /* Stub 500: 31 c0 c3 */
+      [C2 + 0,  "31c0",     "0000",     "s500_0"],
+      [C2 + 2,  "c3",       "00",       "s500_2"],
+      /* SYSENT[200]: narg=8, call=C0, thrcnt=1 */
+      [E0 + 0x00, "08000000", "00000000", "n200"],
+      [E0 + 0x08, loHex(C0),  "00000000", "cl200"],
+      [E0 + 0x0C, hiHex(C0),  "00000000", "ch200"],
+      [E0 + 0x2C, "01000000", "00000000", "t200"],
+      /* SYSENT[201] */
+      [E1 + 0x00, "08000000", "00000000", "n201"],
+      [E1 + 0x08, loHex(C1),  "00000000", "cl201"],
+      [E1 + 0x0C, hiHex(C1),  "00000000", "ch201"],
+      [E1 + 0x2C, "01000000", "00000000", "t201"],
+      /* SYSENT[500] */
+      [E5 + 0x00, "08000000", "00000000", "n500"],
+      [E5 + 0x08, loHex(C2),  "00000000", "cl500"],
+      [E5 + 0x0C, hiHex(C2),  "00000000", "ch500"],
+      [E5 + 0x2C, "01000000", "00000000", "t500"],
+    ];
+
+    if (!k.apply(kbase, p)) { say("[e] ✗ k.apply failed"); return; }
+
+    var ok = 0;
+    for (var i = 0; i < p.length; i++) {
+      var b = unhex(p[i][1]), g = k.read(kat(p[i][0]), b.length);
+      if (g && sameBytes(g, b)) ok++;
+    }
+    say("[e] ✓ GoldHEN syscalls " + ok + "/" + p.length + " (200/201/500)");
+  })();
+
   return iface;
 }
 
