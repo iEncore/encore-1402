@@ -896,6 +896,16 @@ async function runPatchSet(room) {
     if (r2.ok) pset = new Uint8Array(await r2.arrayBuffer());
   } catch (e) {}
   if (!pset || !pset.length) {
+    /* 14.02's BOOTSTRAP_TABLE (314 bytes) already carries the GoldHEN kernel
+       patches that 14.00 puts in a separate kpatches/1400.bin blob. When the
+       blob is absent AND the bootstrap is the extended one (> 200 bytes), the
+       patches are already in place from the bootstrap phase -- proceed. */
+    var bs = BOOTSTRAP_TABLE[FW_KEY];
+    if (bs && bs.length > 400) {
+      say("[g] no separate patch set for " + FW_KEY
+          + " -- extended bootstrap (" + (bs.length / 2) + " bytes) covers them");
+      return true;
+    }
     say("[g] no patch set for firmware " + FW_KEY
         + " -- GoldHEN will not be started without it");
     return false;
