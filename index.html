@@ -1,42 +1,137 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Encore 14.02</title>
-<link rel="stylesheet" href="style.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a12; color: #c8c8d0; font-family: Consolas, 'Courier New', monospace;
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 20px; text-align: center;
+}
+h1 { font-size: 32px; color: #00ccff; margin-bottom: 6px;
+     text-shadow: 0 0 15px #00ccff44, 0 0 30px #00ccff22; }
+.fw { font-size: 14px; color: #666; margin-bottom: 20px; }
+
+.status-box {
+  background: #111118; border: 1px solid #222; border-radius: 6px;
+  padding: 16px 24px; margin-bottom: 16px; min-width: 300px;
+}
+.status-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.label { color: #888; }
+.val { font-weight: bold; }
+.val.ok { color: #0f0; }
+.val.no { color: #f44; }
+.val.warn { color: #fa0; }
+
+#action-area { margin-top: 12px; }
+#start-btn {
+  padding: 14px 48px; font-size: 16px; font-weight: bold; font-family: inherit;
+  background: transparent; border: 2px solid #00ccff; color: #00ccff;
+  border-radius: 4px; cursor: pointer; letter-spacing: 2px;
+  transition: all 0.2s;
+}
+#start-btn:hover { background: #00ccff22; }
+#start-btn:disabled { border-color: #444; color: #444; cursor: default; }
+
+#countdown { font-size: 22px; color: #00ccff; margin: 10px 0; }
+#message { font-size: 13px; color: #888; margin-top: 12px; max-width: 400px; }
+
+.footer { position: fixed; bottom: 8px; font-size: 10px; color: #333; }
+</style>
 </head>
 <body>
-<div id="main">
-  <h1>Encore 14.02</h1>
-  <p>PS4 Firmware 14.02 — WebKit Jailbreak</p>
-  <p id="status">Initializing...</p>
-  <div id="countdown"></div>
-  <p><a id="launch-link" href="launch.html?v=enc1402v3&afterglow=run&mode=payload&payload=goldhen-1402.bin">Launch Jailbreak</a></p>
-  <p style="font-size:0.8em;color:#888;">
-    Kernel exploit: afterglow (APM UAF) by well0nez<br>
-    WebKit primitive: slopkit by jordyidk<br>
-    GoldHEN by SiSTRo<br>
-    14.02 offsets: verified against kernel_1402.bin + KTM preflight
-  </p>
+
+<h1>ENCORE</h1>
+<div class="fw">14.02</div>
+
+<div class="status-box">
+  <div class="status-row"><span class="label">Platform</span><span class="val" id="st-platform">detecting...</span></div>
+  <div class="status-row"><span class="label">Firmware</span><span class="val" id="st-fw">—</span></div>
+  <div class="status-row"><span class="label">Status</span><span class="val" id="st-status">—</span></div>
 </div>
+
+<div id="action-area"></div>
+<div id="countdown"></div>
+<div id="message"></div>
+
+<div class="footer">encore 14.02</div>
+
 <script>
 (function() {
-  var count = 5;
-  var el = document.getElementById('countdown');
-  var link = document.getElementById('launch-link');
-  var stat = document.getElementById('status');
-  stat.textContent = 'Ready. Click Launch or wait ' + count + 's...';
-  var iv = setInterval(function() {
-    count--;
-    if (count <= 0) {
-      clearInterval(iv);
-      stat.textContent = 'Redirecting...';
-      window.location.href = link.href;
-    } else {
-      stat.textContent = 'Launching in ' + count + 's...';
+  var ua = navigator.userAgent || '';
+  var platEl = document.getElementById('st-platform');
+  var fwEl = document.getElementById('st-fw');
+  var statusEl = document.getElementById('st-status');
+  var actionEl = document.getElementById('action-area');
+  var countEl = document.getElementById('countdown');
+  var msgEl = document.getElementById('message');
+
+  /* PS4 UA: "Mozilla/5.0 (PlayStation 4 X.XX) AppleWebKit/..." */
+  var ps4Match = ua.match(/PlayStation 4[^\)]*?(\d+\.\d+)/);
+  var isPS4 = /PlayStation 4/.test(ua);
+  var fwVersion = ps4Match ? ps4Match[1] : null;
+
+  if (!isPS4) {
+    platEl.textContent = 'Not PS4';
+    platEl.className = 'val no';
+    fwEl.textContent = '—';
+    statusEl.textContent = 'Wrong device';
+    statusEl.className = 'val no';
+    msgEl.innerHTML = 'Open this page in the <strong style="color:#00ccff">PS4 browser</strong>.';
+    return;
+  }
+
+  platEl.textContent = 'PS4';
+  platEl.className = 'val ok';
+  fwEl.textContent = fwVersion || 'unknown';
+
+  if (fwVersion === '14.02') {
+    fwEl.className = 'val ok';
+    statusEl.textContent = 'Ready';
+    statusEl.className = 'val ok';
+
+    var btn = document.createElement('button');
+    btn.id = 'start-btn';
+    btn.textContent = 'JAILBREAK';
+    actionEl.appendChild(btn);
+
+    var DEST = 'launch.html?v=enc1402v3&afterglow=run&mode=payload&payload=goldhen-1402.bin';
+    var remaining = 8;
+
+    function go() {
+      clearInterval(timer);
+      countEl.textContent = 'LOADING...';
+      btn.disabled = true;
+      window.location.href = DEST;
     }
-  }, 1000);
+
+    btn.addEventListener('click', function() { go(); });
+
+    function tick() {
+      if (remaining <= 0) { go(); return; }
+      countEl.textContent = remaining;
+      remaining--;
+    }
+
+    tick();
+    var timer = setInterval(tick, 1000);
+    msgEl.textContent = 'Auto-start in 8s or press JAILBREAK';
+
+  } else if (fwVersion && parseFloat(fwVersion) < 14.02) {
+    fwEl.className = 'val warn';
+    statusEl.textContent = 'Wrong firmware';
+    statusEl.className = 'val warn';
+    msgEl.textContent = 'This host is for 14.02 only. Your PS4 is on ' + fwVersion + '.';
+
+  } else {
+    fwEl.className = 'val no';
+    statusEl.textContent = 'Not supported';
+    statusEl.className = 'val no';
+    msgEl.textContent = 'Firmware ' + (fwVersion || 'unknown') + ' is not supported.';
+  }
 })();
 </script>
 </body>
