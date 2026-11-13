@@ -1738,8 +1738,8 @@ async function attempt(ctx, opts) {
   /* ---- STEP P: Load payload ---- */
   say("[p] ---- PAYLOAD LOADING ----");
   say("[p] patchset: patchset-1402.bin (641 bytes, 14.02 corrected)");
-  say("[p] primary:  goldhen-1402.bin (GoldHEN v2.4b18.13, 291925 bytes)");
-  say("[p] fallback: hen-1402-core.bin (HEN, 498720 bytes)");
+  say("[p] primary:  goldhen-1402.bin (GoldHEN v2.4b18.13, official 14.00)");
+  say("[p] fallback: hen-1402-core.bin (ps4-hen, binary-patched 14.02)");
 
   /* First load patchset */
   say("[p] loading patchset-1402.bin...");
