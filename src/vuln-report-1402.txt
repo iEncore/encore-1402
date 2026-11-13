@@ -1,0 +1,178 @@
+==============================================================================
+  PS4 FIRMWARE 14.02 -- KERNEL & WEBKIT VULNERABILITY REPORT
+  Generated: 2026-11-13T21:15:12.847678Z
+  Kernel binary: /home/mc/scan/kernel_1402.bin (28,468,720 bytes)
+  Proven symbols: 21/77
+==============================================================================
+
+
+------------------------------------------------------------------------------
+  [CRITICAL] -- 11 findings
+------------------------------------------------------------------------------
+
+  1. [CVE-2019-15880] FreeBSD cryptodev use-after-free
+     Session cleanup race in cryptodev allows dangling pointer exploitation.
+
+  2. [CVE-2021-29627] FreeBSD accept_filter UaF
+     Race condition in accept filter replacement allows kernel code execution.
+
+  3. [CVE-2022-23088] FreeBSD WiFi stack buffer overflow
+     80211 frame parsing allows kernel heap overflow. PS4 has WiFi subsystem.
+
+  4. [WK-CVE-2023-28205] WebKit UaF in WebCore
+     Type confusion in HTML processing. PS4 14.02 WebKit ~608.x likely unpatched.
+
+  5. [WK-CVE-2023-32373] WebKit UaF in animation handling
+     CSS animation destruction race. Active ITW exploitation.
+
+  6. [WK-CVE-2022-22620] WebKit UaF (Zombie objects)
+     History-related UaF allows full RCE. Known to work on PS4-era WebKit.
+
+  7. [WK-CVE-2022-32893] WebKit out-of-bounds write
+     Malicious web content executes arbitrary code. Active ITW exploitation.
+
+  8. [WK-CVE-2021-30858] WebKit Use-After-Free
+     Memory corruption allows ACE. SSV class - the akatsuki exploit vector.
+
+  9. [WK-CVE-2020-9802] WebKit JIT compiler logic issue
+     JSC JIT generates incorrect code. Classic PS4 JIT spray + type confusion.
+
+  10. [WK-CVE-2023-41993] WebKit processing issue
+     Arbitrary code execution. Actively exploited ITW.
+
+  11. [WK-CVE-2024-23222] WebKit type confusion
+     Type confusion allows ACE processing malicious web content.
+
+
+------------------------------------------------------------------------------
+  [HIGH] -- 29 findings
+------------------------------------------------------------------------------
+
+  1. [SYSCALL-mmap] Potentially vulnerable syscall: mmap
+     CVE-2019-5608-alike: mmap MAP_SHARED on pipes allows kernel write. Found 17 string refs at: 0x7722a9, 0x7b44d1, 0x7d0fe9, 0x7d39d6, 0x7dcb2a
+
+  2. [SYSCALL-setuid] Potentially vulnerable syscall: setuid
+     Credential caching race in setuid/setgid transition. Found 1 string refs at: 0x7e11d7
+
+  3. [SYSCALL-ioctl] Potentially vulnerable syscall: ioctl
+     Multiple ioctl handlers lack bounds validation. Found 91 string refs at: 0x78dac2, 0x79397b, 0x7993b8, 0x7993c4, 0x7993e0
+
+  4. [SYSCALL-sendmsg] Potentially vulnerable syscall: sendmsg
+     SCM_RIGHTS fd passing UaF in older FreeBSD. Found 1 string refs at: 0x7e11fc
+
+  5. [SYSCALL-socketpair] Potentially vulnerable syscall: socketpair
+     Reference counting issues in socketpair teardown. Found 1 string refs at: 0x7e1604
+
+  6. [SYSCALL-pipe] Potentially vulnerable syscall: pipe
+     Pipe buffer overflow with large iovec scatter. Found 62 string refs at: 0x77ca54, 0x77ca61, 0x77ca6c, 0x77ca7a, 0x77ca8c
+
+  7. [SYSCALL-shm_open] Potentially vulnerable syscall: shm_open
+     POSIX SHM allows kernel-mapped pages to be aliased. Found 4 string refs at: 0x7997c5, 0x7c58ee, 0x7e1fc9, 0x7e26ee
+
+  8. [SYSCALL-mprotect] Potentially vulnerable syscall: mprotect
+     mprotect can flip JIT pages RWX without sandbox check. Found 2 string refs at: 0x7d3c7e, 0x7e1393
+
+  9. [SYSCALL-dynlib_load_prx] Potentially vulnerable syscall: dynlib_load_prx
+     PRX loader path traversal / signature bypass. Found 2 string refs at: 0x7ad600, 0x7e2481
+
+  10. [SYSCALL-budget_set] Potentially vulnerable syscall: budget_set
+     Budget syscall allows resource limit manipulation. Found 2 string refs at: 0x7e2329, 0x7e42b4
+
+  11. [SSP-001] Low stack canary coverage: only 0 __stack_chk_fail refs
+     Kernel compiled with limited SSP. Many functions lack stack canaries.
+
+  12. [CVE-2019-5596] FreeBSD jail/vnet privilege escalation
+     Race condition in VNET jail teardown allows kernel arbitrary write.
+
+  13. [CVE-2019-5608] FreeBSD ICMPv6 kernel info leak
+     IPv6 ICMP processing leaks kernel stack data to userland.
+
+  14. [CVE-2020-7454] FreeBSD sendmsg SCM_RIGHTS UaF
+     Passing file descriptors via unix sockets can cause use-after-free.
+
+  15. [CVE-2019-15879] FreeBSD cryptodev kernel memory disclosure
+     Crypto device ioctl leaks uninitialized kernel memory to userland.
+
+  16. [CVE-2019-5597] FreeBSD IPv6 fragment reassembly overflow
+     IPv6 fragmentation handling allows kernel heap overflow.
+
+  17. [CVE-2020-25577] FreeBSD kernel stack disclosure via ptrace
+     ptrace allows reading uninitialized kernel stack data.
+
+  18. [WX-001] W^X violations: 110 mov-eax-7 (RWX prot) patterns
+     Kernel sets RWX page protections. Each is a potential code injection point.
+
+  19. [WK-CVE-2023-32409] WebKit sandbox escape
+     Remote attacker breaks Web Content sandbox. Relevant to PS4 browser.
+
+  20. [WK-CVE-2021-30761] WebKit memory corruption
+     Malicious web content leads to arbitrary code execution.
+
+  21. [WK-CVE-2021-1870] WebKit logic issue in JSC
+     Type confusion in JavaScript Core allows sandbox escape.
+
+  22. [WK-CVE-2020-9850] WebKit IPC handler logic issue
+     Allows reading restricted memory via crafted IPC messages.
+
+  23. [KSYM-PROC_RWMEM] Proven kernel symbol: PROC_RWMEM at RVA 0x366d80
+     Direct kernel R/W into process memory - privesc primitive
+
+  24. [KSYM-VM_MAP_PROTECT] Proven kernel symbol: VM_MAP_PROTECT at RVA 0x2fcce0
+     Change page protections - enables JIT page manipulation
+
+  25. [KSYM-VM_MAP_INSERT] Proven kernel symbol: VM_MAP_INSERT at RVA 0x2f9080
+     Insert memory mappings - enables kernel mapping injection
+
+  26. [KSYM-VM_MAP_DELETE] Proven kernel symbol: VM_MAP_DELETE at RVA 0x2fa980
+     Delete memory mappings - enables mapping removal for UaF
+
+  27. [KSYM-CREATE_THREAD] Proven kernel symbol: CREATE_THREAD at RVA 0x4c6c0
+     Kernel thread creation - enables kernel code execution
+
+  28. [KSYM-KERN_REBOOT] Proven kernel symbol: KERN_REBOOT at RVA 0x3a2bc0
+     System reboot - DoS / forced state reset
+
+  29. [KSYM-KMEM_ALLOC] Proven kernel symbol: KMEM_ALLOC at RVA 0x466920
+     Kernel heap allocation - heap spray target
+
+
+------------------------------------------------------------------------------
+  [MEDIUM] -- 8 findings
+------------------------------------------------------------------------------
+
+  1. [KASLR-001] KASLR slide limited to 21 bits (2MB granularity)
+     Kernel text 28468720 bytes (27.1MB). FreeBSD 9 KASLR uses 21-bit entropy = 2048 possible bases. Brute-forceable in ~10 minutes with info leak primitive.
+
+  2. [ROP-001] ROP gadget surface: 64181 ret, 137 syscall, 128 int80
+     Large kernel text provides extensive ROP gadget catalog. Combined with limited KASLR this enables reliable code-reuse attacks.
+
+  3. [CVE-2020-7451] FreeBSD IPFW uninitialized stack variable
+     Network packet filtering leaks kernel stack bytes.
+
+  4. [DRIVER-SceMbus] PS4 driver: SceMbus (2 refs @ 0x7adaf2)
+     MBUS driver - inter-processor communication attack surface
+
+  5. [DRIVER-SceGnmDriver] PS4 driver: SceGnmDriver (2 refs @ 0x7ad9f3)
+     GPU driver - shared memory DMA attacks
+
+  6. [DRIVER-SceHid] PS4 driver: SceHid (12 refs @ 0xade2f6)
+     HID driver - USB device parsing overflow
+
+  7. [DRIVER-SceBt] PS4 driver: SceBt (4 refs @ 0xad5b8c)
+     Bluetooth driver - remote attack surface
+
+  8. [NULL-001] Null pointer check patterns: 2912 test-rdi-je sequences
+     Each missing null check near a dereference is a potential null page mapping exploit.
+
+
+------------------------------------------------------------------------------
+  [INFO] -- 1 findings
+------------------------------------------------------------------------------
+
+  1. [BOUNDARY-001] User/kernel boundary: 182 copyin, 166 copyout refs
+     Inline copies without copyin wrapper may bypass SMAP-equivalent checks.
+
+==============================================================================
+  TOTAL: 49 findings
+  CRITICAL=11  HIGH=29  MEDIUM=8  INFO=1
+==============================================================================
