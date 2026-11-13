@@ -362,6 +362,8 @@ function shooter(gad) {
       this.why = "no apm unit among 0.." + TUNE.ceiling
                  + " (" + Object.keys(STATE.units).length + " spent, refusals "
                  + refused.join(" ") + ")";
+      say("[APM:DBG] all units busy/spent. spent=" + JSON.stringify(Object.keys(STATE.units))
+          + " errno_last=" + host().errno());
       return null;
     }
     STATE.units[unit] = true;
@@ -1218,7 +1220,9 @@ async function attempt(ctx, opts) {
   const file = qAt(note, 40), ops = qAt(note, 48);
   say("[3] chain=" + (r2 === null ? ("null -- " + shot.why) : r2) + " file=" + text(file) + " ops=" + text(ops));
   if (!inHeap(file) || !inText(ops)) {
-    say("    handles implausible -- nothing written"); STATE.retry = true; return false;
+    say("    handles implausible -- nothing written");
+    say("[3:DBG] file=" + text(file) + " inHeap=" + inHeap(file) + " ops=" + text(ops) + " inText=" + inText(ops));
+    STATE.retry = true; return false;
   }
 
   let sane = 0;
@@ -1259,7 +1263,15 @@ async function attempt(ctx, opts) {
     const below = hostPage.hi < upto.hi || (hostPage.hi === upto.hi && hostPage.low < upto.low);
     if (above && below) { hit = k; break; }
   }
-  if (hit === null) { say("[4] no mapping covers the host page, " + walked + " walked"); STATE.retry = true; return false; }
+  if (hit === null) {
+    say("[4] no mapping covers the host page, " + walked + " walked");
+    say("[4:DBG] hostPage=" + text(hostPage) + " reach=" + reach + " maps.at=" + text(maps.at));
+    for (let d = 0; d < Math.min(walked, 5); d++) {
+      var df = qAt(maps, d * TUNE.stride + 0x20), du = qAt(maps, d * TUNE.stride + 0x28);
+      say("[4:DBG]   map[" + d + "] from=" + text(df) + " upto=" + text(du));
+    }
+    STATE.retry = true; return false;
+  }
   if (hit === 0) { say("[4] the host page is the first mapping -- cannot address it"); STATE.retry = true; return false; }
 
   const rights = maps.dv.getUint32(hit * TUNE.stride + 0x5c, true);
