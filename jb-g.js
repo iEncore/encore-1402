@@ -34,7 +34,7 @@ function showRetry() {
   showNotice("exploit failed - please retry (reopen browser)");
 }
 
-const WATCHDOG_MS = 120000;
+const WATCHDOG_MS = 45000;
 const watchdog = setInterval(function () {
   if (Date.now() - lastMark > WATCHDOG_MS) {
     try { clearInterval(watchdog); } catch (e) {}
@@ -1011,7 +1011,7 @@ let allDone = false,
          (afterglow=probe) fires no trigger and patches nothing, so a restored
          page may run that. */
       try {
-        const ag = await import("./afterglow-g.js?v=1402src3");
+        const ag = await import("./afterglow-g.js?v=hen184-1402");
         // Exactly what afterglow reaches for, counted rather than guessed.
         const agCtx = {
           p: p, callAddr: callAddr, bufAddr: bufAddr, errno: errno,

